@@ -1,4 +1,5 @@
-import { UploadEntity } from './upload.entity';
+import { MulterModule } from '@nestjs/platform-express';
+import { Food } from './upload.entity';
 import { UploadService } from './upload.service';
 import { UploadController } from './upload.controller';
 import { UploadRepository } from './upload.repository';
@@ -7,9 +8,10 @@ import { Module } from "@nestjs/common";
 
 @Module({
     imports : [
-        TypeOrmModule.forFeature([UploadRepository,UploadEntity]),
+        MulterModule,
+        TypeOrmModule.forFeature([UploadRepository,Food]),
     ],
     controllers:[UploadController],
-    providers:[UploadService,UploadRepository],
+    providers:[UploadService],
 })
 export class UploadModule {}

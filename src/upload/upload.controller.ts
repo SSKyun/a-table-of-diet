@@ -1,10 +1,11 @@
-import { Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { createWorker } from 'tesseract.js';
 import { UploadService } from './upload.service';
-import { UploadEntity } from './upload.entity';
+import { Food } from './upload.entity';
+import { CreateUploadDto } from '../upload/dto/create-upload.dto';
 
 @Controller('upload')
 export class UploadController {
@@ -25,19 +26,38 @@ export class UploadController {
       throw new Error('이미지 파일을 업로드해주세요.');
     }
 
-    const worker = createWorker();
+    const worker = createWorker({
+      logger: m => console.log(m)
+    });
+
     await (await worker).load();
     await (await worker).loadLanguage('eng');
     await (await worker).initialize('eng');
     const { data: { text } } = await (await worker).recognize(`./uploads/${file.filename}`);
     await (await worker).terminate();
 
-    const upload = new UploadEntity();
-    upload.originalname = file.originalname;
-    upload.filename = file.filename;
-    upload.text = text;
+    // Extracting foodName and mealTime from the OCR result
+    const mealTimes = ['아침', '점심', '저녁'];
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const [foodName, mealTime] = lines.reduce((acc, line) => {
+      const word = line.trim();
+      if (mealTimes.includes(word)) {
+        acc[1] = word;
+      } else {
+        acc[0] += ` ${word}`;
+      }
+      return acc;
+    }, ['', '']);
 
-    await this.uploadService.createUpload(upload);
+    const uploadDto = new CreateUploadDto();
+    uploadDto.filename = file.filename;
+    uploadDto.originalname = file.originalname;
+    uploadDto.text = text;
+    uploadDto.foodName = foodName;
+    uploadDto.mealTime = mealTime;
+    uploadDto.date = new Date();
+
+    await this.uploadService.createUpload(uploadDto);
 
     return { message: '이미지 파일 업로드가 완료되었습니다.' };
   }
